@@ -1,9 +1,13 @@
 import type React from "react"
-
 import { DashboardSidebar, MobileSidebarTrigger } from "@/components/dashboard/sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { checkAuth } from "../login/actions"
+import { Metadata } from "next";
 
+export const metadata: Metadata = {
+  title: "MyStore || Dashboard",
+  description: "A comprehensive business management dashboard",
+};
 export default async function DashboardLayout({
   children,
 }: {
