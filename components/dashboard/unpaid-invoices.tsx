@@ -55,7 +55,7 @@ export function UnpaidInvoices() {
             <p className="text-sm text-muted-foreground">{invoice.customer.email}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium">${invoice.amount.toFixed(2)}</p>
+            <p className="text-sm font-medium">₹{invoice.amount.toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">Due {invoice.dueDate}</p>
           </div>
         </div>
