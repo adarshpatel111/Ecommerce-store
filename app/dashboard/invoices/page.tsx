@@ -170,7 +170,7 @@ function InvoiceTable({
               <TableRow key={invoice.id}>
                 <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
                 <TableCell>{invoice.customer}</TableCell>
-                <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                <TableCell>₹{invoice.amount.toFixed(2)}</TableCell>
                 <TableCell>{invoice.date}</TableCell>
                 <TableCell>
                   <Badge variant={invoice.status === "paid" ? "default" : "destructive"}>
