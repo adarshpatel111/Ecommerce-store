@@ -92,7 +92,7 @@ export default function CustomersPage() {
                       <TableCell>{customer.email}</TableCell>
                       <TableCell>{customer.phone || "—"}</TableCell>
                       <TableCell>{customer.orders || 0}</TableCell>
-                      <TableCell>${(customer.totalSpent || 0).toFixed(2)}</TableCell>
+                      <TableCell>₹{(customer.totalSpent || 0).toFixed(2)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
