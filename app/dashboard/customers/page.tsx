@@ -1,26 +1,40 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Plus, Search } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { AddCustomerDialog } from "@/components/dashboard/add-customer-dialog"
-import { useStore } from "@/context/store-context"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { AddCustomerDialog } from "@/components/dashboard/add-customer-dialog";
+import { useStore } from "@/context/store-context";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CustomersPage() {
-  const { customers, loading } = useStore()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const { customers, loading } = useStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filteredCustomers = customers.filter(
     (customer) =>
-      `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+      `${customer.firstName} ${customer.lastName}`
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -92,7 +106,9 @@ export default function CustomersPage() {
                       <TableCell>{customer.email}</TableCell>
                       <TableCell>{customer.phone || "—"}</TableCell>
                       <TableCell>{customer.orders || 0}</TableCell>
-                      <TableCell>₹{(customer.totalSpent || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        ₹{(customer.totalSpent || 0).toFixed(2)}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -110,5 +126,5 @@ export default function CustomersPage() {
 
       <AddCustomerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
     </div>
-  )
+  );
 }
