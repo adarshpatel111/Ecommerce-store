@@ -66,7 +66,7 @@ export function RecentOrders() {
             <p className="text-sm text-muted-foreground">{order.customer.email}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium">${order.amount.toFixed(2)}</p>
+            <p className="text-sm font-medium">₹{order.amount.toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">{order.date}</p>
           </div>
         </div>
