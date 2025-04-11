@@ -10,9 +10,8 @@ import { StoreProvider } from "@/context/store-context";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MyStore Dashboard",
+  title: "MyStore",
   description: "A comprehensive business management dashboard",
-  generator: "v0.dev",
 };
 
 export default function RootLayout({
