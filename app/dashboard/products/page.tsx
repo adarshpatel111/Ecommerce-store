@@ -1,24 +1,72 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Plus } from "lucide-react"
-import Image from "next/image"
+import { useState } from "react";
+import { Plus, Search, Trash2, Edit } from "lucide-react";
+import Image from "next/image";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { AddProductDialog } from "@/components/dashboard/add-product-dialog"
-import { useStore } from "@/context/store-context"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { AddProductDialog } from "@/components/dashboard/add-product-dialog";
+import { useStore } from "@/context/store-context";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProductsPage() {
-  const { products, loading } = useStore()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const { products, loading, deleteProduct } = useStore();
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleDeleteClick = (id: string) => {
+    setProductToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteProduct(productToDelete);
+      setIsDeleteDialogOpen(false);
+      toast({
+        title: "Product deleted",
+        description: "Product has been deleted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete product.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -34,15 +82,18 @@ export default function ProductsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Product Inventory</CardTitle>
-          <CardDescription>View and manage all your products</CardDescription>
-          <div className="mt-4">
+        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <CardTitle>Product Inventory</CardTitle>
+            <CardDescription>View and manage all your products</CardDescription>
+          </div>
+          <div className="relative w-full sm:w-auto">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-sm"
+              className="pl-8 w-full"
             />
           </div>
         </CardHeader>
@@ -54,8 +105,9 @@ export default function ProductsPage() {
                   <TableHead className="w-[80px]">Image</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Price</TableHead>
-                  <TableHead>Stock</TableHead>
+                  <TableHead className="hidden sm:table-cell">Stock</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -72,11 +124,17 @@ export default function ProductsPage() {
                       <TableCell>
                         <Skeleton className="h-4 w-[80px]" />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Skeleton className="h-4 w-[60px]" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-4 w-[100px]" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -86,34 +144,60 @@ export default function ProductsPage() {
                       <TableCell>
                         <div className="h-10 w-10 relative">
                           <Image
-                            src={product.image || "/placeholder.svg?height=40&width=40"}
+                            src={
+                              product.image ||
+                              "/placeholder.svg?height=40&width=40"
+                            }
                             alt={product.name}
                             fill
                             className="rounded-md object-cover"
                           />
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>₹{product.price.toFixed(2)}</TableCell>
-                      <TableCell>{product.stock}</TableCell>
+                      <TableCell className="font-medium">
+                        {product.name}
+                      </TableCell>
+                      <TableCell>${product.price.toFixed(2)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {product.stock}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={
                             product.status === "In Stock"
                               ? "default"
                               : product.status === "Low Stock"
-                                ? "warning"
-                                : "destructive"
+                              ? "warning"
+                              : "destructive"
                           }
                         >
                           {product.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteClick(product.id || "")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -125,6 +209,14 @@ export default function ProductsPage() {
       </Card>
 
       <AddProductDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete Product"
+        description="Are you sure you want to delete this product? This action cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+      />
     </div>
-  )
+  );
 }
