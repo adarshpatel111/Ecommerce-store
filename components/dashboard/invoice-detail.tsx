@@ -1,331 +1,280 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
+import { useReactToPrint } from "react-to-print";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useStore, type Invoice, type Customer } from "@/context/store-context";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import {
+  useStore,
+  type Invoice,
+  type Customer,
+  type InvoiceItem,
+} from "@/context/store-context";
+import { Printer } from "lucide-react";
 
 interface InvoiceDetailProps {
-  invoiceId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  invoiceId: string | null;
 }
 
 export function InvoiceDetail({
-  invoiceId,
   open,
   onOpenChange,
+  invoiceId,
 }: InvoiceDetailProps) {
-  const { invoices, customers, products, markInvoiceAsPaid } = useStore();
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { invoices, customers, getInvoiceItems, markInvoiceAsPaid } =
+    useStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [invoiceDetails, setInvoiceDetails] = useState<{
+    invoice: Invoice | null;
+    customer: Customer | null;
+    items: InvoiceItem[];
+  }>({
+    invoice: null,
+    customer: null,
+    items: [],
+  });
 
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // Fetch invoice data
   useEffect(() => {
     const fetchInvoiceDetails = async () => {
       if (!invoiceId) return;
 
-      setLoading(true);
-
+      setIsLoading(true);
       try {
-        // Find the invoice in our store
-        const foundInvoice = invoices.find((inv) => inv.id === invoiceId);
+        const invoice = invoices.find((inv) => inv.id === invoiceId);
+        if (!invoice) return;
 
-        if (foundInvoice) {
-          setInvoice(foundInvoice);
+        const customer = customers.find((c) => c.id === invoice.customerId);
+        const items = await getInvoiceItems(invoiceId);
 
-          // Find the customer
-          const foundCustomer = customers.find(
-            (c) => c.id === foundInvoice.customerId
-          );
-          if (foundCustomer) {
-            setCustomer(foundCustomer);
-          } else {
-            // Try to fetch from Firestore directly if not in store
-            const customerDoc = await getDoc(
-              doc(db, "customers", foundInvoice.customerId)
-            );
-            if (customerDoc.exists()) {
-              setCustomer({
-                id: customerDoc.id,
-                ...customerDoc.data(),
-              } as Customer);
-            }
-          }
-
-          // Fetch invoice items
-          const invoiceItemsRef = doc(db, "invoiceItems", invoiceId);
-          const invoiceItemsDoc = await getDoc(invoiceItemsRef);
-
-          if (invoiceItemsDoc.exists()) {
-            const items = invoiceItemsDoc.data()?.items || [];
-
-            // Enrich with product details
-            const enrichedItems = items.map((item: any) => {
-              const product = products.find((p) => p.id === item.productId);
-              return {
-                ...item,
-                productName: product?.name || "Unknown Product",
-                productPrice: product?.price || 0,
-              };
-            });
-
-            setInvoiceItems(enrichedItems);
-          } else {
-            // For demo purposes, create some sample items
-            setInvoiceItems([
-              {
-                id: "1",
-                productId: "sample-1",
-                productName: "Product 1",
-                quantity: 2,
-                price: 49.99,
-                total: 99.98,
-              },
-              {
-                id: "2",
-                productId: "sample-2",
-                productName: "Product 2",
-                quantity: 1,
-                price: 149.99,
-                total: 149.99,
-              },
-            ]);
-          }
-        }
+        setInvoiceDetails({
+          invoice,
+          customer: customer || null,
+          items,
+        });
       } catch (error) {
         console.error("Error fetching invoice details:", error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
     fetchInvoiceDetails();
-  }, [invoiceId, invoices, customers, products]);
+  }, [invoiceId, invoices, customers, getInvoiceItems]);
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `Invoice-${invoiceDetails.invoice?.invoiceId || ""}`,
+    removeAfterPrint: true,
+    pageStyle: `
+      @page {
+        size: auto;
+        margin: 20mm;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .print-only {
+          display: block !important;
+        }
+      }
+    `,
+  });
 
   const handleMarkAsPaid = async () => {
-    if (invoice?.id) {
-      await markInvoiceAsPaid(invoice.id);
-      setInvoice({ ...invoice, status: "paid" });
+    if (invoiceId) {
+      setIsLoading(true);
+      try {
+        await markInvoiceAsPaid(invoiceId);
+        // Update local state
+        if (invoiceDetails.invoice) {
+          setInvoiceDetails({
+            ...invoiceDetails,
+            invoice: {
+              ...invoiceDetails.invoice,
+              status: "paid",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Error marking invoice as paid:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  if (!invoice) {
+  if (!invoiceDetails.invoice || !invoiceDetails.customer) {
     return null;
   }
 
-  // Calculate totals
-  const subtotal = invoiceItems.reduce(
-    (sum, item) => sum + (item.total || 0),
-    0
-  );
-  const tax = subtotal * 0.1; // 10% tax
+  const { invoice, customer, items } = invoiceDetails;
+  const subtotal = items.reduce((total, item) => total + item.subtotal, 0);
+  const tax = subtotal * 0.07; // 7% tax rate
   const total = subtotal + tax;
 
-  // Generate invoice number (in a real app, this would come from the database)
-  const invoiceNumber =
-    invoice.invoiceId || `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+  // Format date properly
+  const invoiceDate = format(new Date(invoice.date), "MMMM dd, yyyy");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Invoice {invoiceNumber}</DialogTitle>
-          <DialogDescription>
-            {new Date(invoice.date).toLocaleDateString()} -
-            <Badge
-              variant={invoice.status === "paid" ? "default" : "destructive"}
-              className="ml-2"
-            >
-              {invoice.status === "paid" ? "Paid" : "Unpaid"}
-            </Badge>
-          </DialogDescription>
+      <DialogContent className="max-w-3xl overflow-auto max-h-[95vh]">
+        <DialogHeader className="no-print">
+          <DialogTitle>Invoice #{invoice.invoiceId}</DialogTitle>
+          <DialogDescription>Generated on {invoiceDate}</DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center p-6">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">
-                  From
-                </h3>
-                <div className="mt-1">
-                  <p className="font-medium">BusinessPro Inc.</p>
-                  <p className="text-sm text-muted-foreground">
-                    123 Business Street
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    New York, NY 10001
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    contact@businesspro.com
-                  </p>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">
-                  Bill To
-                </h3>
-                <div className="mt-1">
-                  <p className="font-medium">
-                    {customer
-                      ? `${customer.firstName} ${customer.lastName}`
-                      : invoice.customer}
-                  </p>
-                  {customer && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        {customer.email}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {customer.phone || "No phone provided"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {customer.address || "No address provided"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Invoice Details */}
+        <div ref={printRef} className="invoice-container py-4">
+          {/* Header */}
+          <div className="flex justify-between mb-6">
             <div>
-              <h3 className="mb-3 font-medium">Invoice Details</h3>
-              <div className="rounded-md border">
-                <table className="min-w-full divide-y divide-border">
-                  <thead>
-                    <tr className="bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                        Item
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                        Qty
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                        Price
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {invoiceItems.map((item, index) => (
-                      <tr key={item.id || index}>
-                        <td className="px-4 py-3 text-sm">
-                          {item.productName}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm">
-                          {item.quantity}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm">
-                          ${item.price?.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm">
-                          ${item.total?.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-4 py-2 text-right text-sm font-medium"
-                      >
-                        Subtotal
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm">
-                        ${subtotal.toFixed(2)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-4 py-2 text-right text-sm font-medium"
-                      >
-                        Tax (10%)
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm">
-                        ${tax.toFixed(2)}
-                      </td>
-                    </tr>
-                    <tr className="bg-muted/50">
-                      <td
-                        colSpan={3}
-                        className="px-4 py-2 text-right text-sm font-bold"
-                      >
-                        Total
-                      </td>
-                      <td className="px-4 py-2 text-right text-sm font-bold">
-                        ${total.toFixed(2)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+              <h2 className="text-2xl font-bold">INVOICE</h2>
+              <p className="text-muted-foreground">{invoiceDate}</p>
             </div>
+            <div className="text-right">
+              <div className="font-bold text-lg">BusinessPro Inc.</div>
+              <p className="text-sm text-muted-foreground">
+                123 Commerce St.
+                <br />
+                Business City, BZ 12345
+                <br />
+                contact@businesspro.com
+              </p>
+            </div>
+          </div>
 
-            {/* Footer */}
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <div>
-                  <h3 className="text-sm font-medium">Payment Details</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Payment due by:{" "}
-                    {format(new Date(invoice.date), "MMM dd, yyyy")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">
-                    Invoice #: {invoiceNumber}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Date: {format(new Date(invoice.date), "MMM dd, yyyy")}
-                  </p>
-                </div>
+          {/* Invoice ID and Status */}
+          <div className="flex justify-between mb-6">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">
+                Invoice Number
               </div>
-
-              <div className="rounded-md bg-muted/50 p-4 text-sm">
-                <p className="font-medium">Thank you for your business!</p>
-                <p className="text-muted-foreground">
-                  This is a computer-generated invoice. No signature is
-                  required.
-                </p>
+              <div className="font-medium">{invoice.invoiceId}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-medium text-muted-foreground">
+                Status
+              </div>
+              <div
+                className={`font-medium ${
+                  invoice.status === "paid" ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {invoice.status === "paid" ? "Paid" : "Unpaid"}
               </div>
             </div>
           </div>
-        )}
 
-        <DialogFooter className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => window.print()}>
+          {/* Customer Info */}
+          <div className="mb-8 p-4 border rounded-md bg-muted/20 print:bg-transparent print:border-none">
+            <div className="text-sm font-medium mb-2">Bill To:</div>
+            <div className="font-bold text-lg">
+              {customer.firstName} {customer.lastName}
+            </div>
+            <div className="text-muted-foreground">{customer.email}</div>
+            {customer.phone && (
+              <div className="text-muted-foreground">{customer.phone}</div>
+            )}
+            {customer.address && (
+              <div className="text-muted-foreground">{customer.address}</div>
+            )}
+          </div>
+
+          {/* Invoice Items */}
+          <div className="mb-8">
+            <div className="grid grid-cols-12 font-medium bg-muted p-2 rounded-t-md print:bg-transparent print:border-b">
+              <div className="col-span-6">Item</div>
+              <div className="col-span-2 text-right">Quantity</div>
+              <div className="col-span-2 text-right">Price</div>
+              <div className="col-span-2 text-right">Total</div>
+            </div>
+            <div className="border-x border-b rounded-b-md print:border-x-0">
+              {items.map((item, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-12 p-3 border-b last:border-b-0"
+                >
+                  <div className="col-span-6">
+                    <div className="font-medium">{item.productName}</div>
+                  </div>
+                  <div className="col-span-2 text-right">{item.quantity}</div>
+                  <div className="col-span-2 text-right">
+                    ${item.price.toFixed(2)}
+                  </div>
+                  <div className="col-span-2 text-right font-medium">
+                    ${item.subtotal.toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="flex justify-end mb-8">
+            <div className="w-64">
+              <div className="flex justify-between py-2">
+                <div className="text-muted-foreground">Subtotal</div>
+                <div className="font-medium">${subtotal.toFixed(2)}</div>
+              </div>
+              <div className="flex justify-between py-2">
+                <div className="text-muted-foreground">Tax (7%)</div>
+                <div className="font-medium">${tax.toFixed(2)}</div>
+              </div>
+              <Separator className="my-2" />
+              <div className="flex justify-between py-2 font-bold">
+                <div>Total</div>
+                <div>${total.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="mb-4 text-sm text-muted-foreground">
+            <p className="font-medium mb-1">Notes:</p>
+            <p>Thank you for your business. Payment is due within 30 days.</p>
+            <p>
+              This is a computer-generated invoice, no signature is required.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 no-print">
+          {invoice.status === "unpaid" && (
+            <Button
+              onClick={handleMarkAsPaid}
+              className="w-full sm:w-auto"
+              disabled={isLoading}
+            >
+              {isLoading ? "Processing..." : "Mark as Paid"}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            className="w-full sm:w-auto"
+          >
+            <Printer className="mr-2 h-4 w-4" />
             Print Invoice
           </Button>
-
-          {invoice.status === "unpaid" && (
-            <Button onClick={handleMarkAsPaid}>Mark as Paid</Button>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
