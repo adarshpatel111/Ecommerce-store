@@ -1,47 +1,125 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/auth-context";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { updatePassword } from "firebase/auth";
 
 export default function ProfilePage() {
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast();
+  const { user, userData } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const [profileData, setProfileData] = useState({
+    firstName: userData?.firstName || "",
+    lastName: userData?.lastName || "",
+    email: userData?.email || "",
+    phone: userData?.phone || "",
+  });
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setProfileData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      if (!user) throw new Error("User not authenticated");
+
+      // Update user profile in Firestore
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        phone: profileData.phone,
+      });
+
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
-      })
-    }, 1000)
-  }
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: error.message || "Failed to update profile.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      if (!user) throw new Error("User not authenticated");
+
+      // Validate passwords
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      // Update password in Firebase Auth
+      await updatePassword(user, passwordData.newPassword);
+
+      // Reset form
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
       toast({
         title: "Password changed",
         description: "Your password has been changed successfully.",
-      })
-    }, 1000)
-  }
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: error.message || "Failed to update password.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -67,20 +145,41 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First name</Label>
-                    <Input id="firstName" defaultValue="John" />
+                    <Input
+                      id="firstName"
+                      value={profileData.firstName}
+                      onChange={handleProfileChange}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last name</Label>
-                    <Input id="lastName" defaultValue="Doe" />
+                    <Input
+                      id="lastName"
+                      value={profileData.lastName}
+                      onChange={handleProfileChange}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="john.doe@example.com" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileData.email}
+                    disabled
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Email cannot be changed
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone number</Label>
-                  <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handleProfileChange}
+                  />
                 </div>
               </CardContent>
               <CardFooter>
@@ -98,19 +197,96 @@ export default function ProfilePage() {
               <CardTitle>Change Password</CardTitle>
               <CardDescription>Update your password</CardDescription>
             </CardHeader>
-            <form onSubmit={handlePasswordChange}>
+            <form onSubmit={handlePasswordUpdate}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword">Current password</Label>
-                  <Input id="currentPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={passwordData.currentPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 text-muted-foreground"
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
+                    >
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">
+                        {showCurrentPassword
+                          ? "Hide password"
+                          : "Show password"}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">New password</Label>
-                  <Input id="newPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 text-muted-foreground"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">
+                        {showNewPassword ? "Hide password" : "Show password"}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm password</Label>
-                  <Input id="confirmPassword" type="password" />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 text-muted-foreground"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">
+                        {showConfirmPassword
+                          ? "Hide password"
+                          : "Show password"}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>
@@ -123,5 +299,5 @@ export default function ProfilePage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

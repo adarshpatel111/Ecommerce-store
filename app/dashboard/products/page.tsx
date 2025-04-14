@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AddProductDialog } from "@/components/dashboard/add-product-dialog";
+import { EditProductDialog } from "@/components/dashboard/edit-product-dialog";
 import { useStore } from "@/context/store-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -31,7 +32,11 @@ import { useToast } from "@/hooks/use-toast";
 export default function ProductsPage() {
   const { products, loading, deleteProduct } = useStore();
   const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -40,6 +45,11 @@ export default function ProductsPage() {
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleEditClick = (id: string) => {
+    setSelectedProductId(id);
+    setIsEditDialogOpen(true);
+  };
 
   const handleDeleteClick = (id: string) => {
     setProductToDelete(id);
@@ -75,7 +85,7 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">Manage your product inventory</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Add Product
         </Button>
@@ -157,7 +167,7 @@ export default function ProductsPage() {
                       <TableCell className="font-medium">
                         {product.name}
                       </TableCell>
-                      <TableCell>${product.price.toFixed(2)}</TableCell>
+                      <TableCell>₹{product.price.toFixed(2)}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {product.stock}
                       </TableCell>
@@ -180,6 +190,7 @@ export default function ProductsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            onClick={() => handleEditClick(product.id || "")}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -208,7 +219,15 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      <AddProductDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <AddProductDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+      />
+      <EditProductDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        productId={selectedProductId}
+      />
       <ConfirmationDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

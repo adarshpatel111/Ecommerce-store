@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,17 +19,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useStore, type Product } from "@/context/store-context";
 
-interface AddProductDialogProps {
+interface EditProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  productId: string | null;
 }
 
-export function AddProductDialog({
+export function EditProductDialog({
   open,
   onOpenChange,
-}: AddProductDialogProps) {
+  productId,
+}: EditProductDialogProps) {
   const { toast } = useToast();
-  const { addProduct } = useStore();
+  const { products, updateProduct } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -38,6 +40,22 @@ export function AddProductDialog({
     description: "",
     image: "",
   });
+
+  // Load product data when dialog opens
+  useEffect(() => {
+    if (open && productId) {
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        setFormData({
+          name: product.name,
+          price: product.price.toString(),
+          stock: product.stock.toString(),
+          description: product.description || "",
+          image: product.image || "",
+        });
+      }
+    }
+  }, [open, productId, products]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -48,11 +66,13 @@ export function AddProductDialog({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!productId) return;
+
     setIsLoading(true);
 
     try {
-      // Create product object
-      const product: Product = {
+      // Create updated product object
+      const updatedProduct: Partial<Product> = {
         name: formData.name,
         price: Number(formData.price) || 0,
         stock: Number(formData.stock) || 0,
@@ -61,30 +81,21 @@ export function AddProductDialog({
         image: formData.image || "/placeholder.svg?height=40&width=40",
       };
 
-      // Add product to database
-      await addProduct(product);
-
-      // Reset form
-      setFormData({
-        name: "",
-        price: "",
-        stock: "",
-        description: "",
-        image: "",
-      });
+      // Update product in database
+      await updateProduct(productId, updatedProduct);
 
       // Close dialog and show success message
       onOpenChange(false);
       toast({
-        title: "Product added",
-        description: "Your product has been added successfully.",
+        title: "Product updated",
+        description: "Your product has been updated successfully.",
       });
     } catch (error) {
-      console.error("Error adding product:", error);
+      console.error("Error updating product:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to add product. Please try again.",
+        description: "Failed to update product. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -95,9 +106,9 @@ export function AddProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>Edit Product</DialogTitle>
           <DialogDescription>
-            Fill in the details to add a new product to your inventory.
+            Update the details of your product.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -167,7 +178,7 @@ export function AddProductDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add Product"}
+              {isLoading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

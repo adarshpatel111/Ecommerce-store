@@ -1,8 +1,21 @@
-import { IndianRupee, Users, ShoppingCart, CreditCard } from "lucide-react"
+import { IndianRupee, Users, ShoppingCart, CreditCard } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function DashboardStats() {
+interface StatsProps {
+  stats: {
+    totalRevenue: number;
+    totalCustomers: number;
+    totalProducts: number;
+    unpaidInvoices: number;
+    revenueGrowth: number;
+    customerGrowth: number;
+    productGrowth: number;
+    unpaidGrowth: number;
+  };
+}
+
+export function DashboardStats({ stats }: StatsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -11,8 +24,13 @@ export function DashboardStats() {
           <IndianRupee className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹45,231.89</div>
-          <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+          <div className="text-2xl font-bold">
+            ₹{stats.totalRevenue.toFixed(2)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {stats.revenueGrowth > 0 ? "+" : ""}
+            {stats.revenueGrowth}% from last month
+          </p>
         </CardContent>
       </Card>
 
@@ -22,8 +40,11 @@ export function DashboardStats() {
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">+2,350</div>
-          <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+          <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+          <p className="text-xs text-muted-foreground">
+            {stats.customerGrowth > 0 ? "+" : ""}
+            {stats.customerGrowth}% from last month
+          </p>
         </CardContent>
       </Card>
 
@@ -33,8 +54,11 @@ export function DashboardStats() {
           <ShoppingCart className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">+12,234</div>
-          <p className="text-xs text-muted-foreground">+19% from last month</p>
+          <div className="text-2xl font-bold">{stats.totalProducts}</div>
+          <p className="text-xs text-muted-foreground">
+            {stats.productGrowth > 0 ? "+" : ""}
+            {stats.productGrowth}% from last month
+          </p>
         </CardContent>
       </Card>
 
@@ -44,10 +68,13 @@ export function DashboardStats() {
           <CreditCard className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">+573</div>
-          <p className="text-xs text-muted-foreground">+201 since last week</p>
+          <div className="text-2xl font-bold">{stats.unpaidInvoices}</div>
+          <p className="text-xs text-muted-foreground">
+            {stats.unpaidGrowth > 0 ? "+" : ""}
+            {stats.unpaidGrowth}% from last month
+          </p>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

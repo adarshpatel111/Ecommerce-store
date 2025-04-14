@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -24,14 +24,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/context/store-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, FileText, Trash2 } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Merge } from "lucide-react";
 import { InvoiceDetail } from "@/components/dashboard/invoice-detail";
 import { CreateInvoiceDialog } from "@/components/dashboard/create-invoice-dialog";
+import { MergeInvoicesDialog } from "@/components/dashboard/merge-invoices-dialog";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function InvoicesPage() {
-  const { invoices, loading, markInvoiceAsPaid, deleteInvoice } = useStore();
+  const { invoices, customers, loading, markInvoiceAsPaid, deleteInvoice } =
+    useStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -43,6 +51,10 @@ export default function InvoicesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null
+  );
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -55,6 +67,31 @@ export default function InvoicesPage() {
       return matchesSearch && invoice.status === activeTab;
     }
   });
+
+  // Group invoices by customer for merge functionality
+  const customerWithMultipleUnpaidInvoices = useMemo(() => {
+    const unpaidInvoicesByCustomer = invoices
+      .filter((invoice) => invoice.status === "unpaid")
+      .reduce((acc, invoice) => {
+        if (!acc[invoice.customerId]) {
+          acc[invoice.customerId] = [];
+        }
+        acc[invoice.customerId].push(invoice);
+        return acc;
+      }, {} as Record<string, typeof invoices>);
+
+    return Object.entries(unpaidInvoicesByCustomer)
+      .filter(([_, invoices]) => invoices.length > 1)
+      .map(([customerId]) => {
+        const customer = customers.find((c) => c.id === customerId);
+        return {
+          id: customerId,
+          name: customer
+            ? `${customer.firstName} ${customer.lastName}`
+            : "Unknown Customer",
+        };
+      });
+  }, [invoices, customers]);
 
   const handleInvoiceClick = (id: string) => {
     setSelectedInvoiceId(id);
@@ -105,6 +142,11 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleMergeInvoices = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setIsMergeDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -114,10 +156,32 @@ export default function InvoicesPage() {
             Manage your invoices and payments
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Invoice
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          {customerWithMultipleUnpaidInvoices.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Merge className="mr-2 h-4 w-4" />
+                  Merge Invoices
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {customerWithMultipleUnpaidInvoices.map((customer) => (
+                  <DropdownMenuItem
+                    key={customer.id}
+                    onClick={() => handleMergeInvoices(customer.id)}
+                  >
+                    {customer.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
@@ -211,6 +275,11 @@ export default function InvoicesPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+      <MergeInvoicesDialog
+        open={isMergeDialogOpen}
+        onOpenChange={setIsMergeDialogOpen}
+        customerId={selectedCustomerId}
+      />
       <ConfirmationDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -290,7 +359,7 @@ function InvoiceTable({
                 <TableCell className="hidden md:table-cell">
                   {invoice.customer}
                 </TableCell>
-                <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                <TableCell>₹{invoice.amount.toFixed(2)}</TableCell>
                 <TableCell className="hidden sm:table-cell">
                   {invoice.date}
                 </TableCell>

@@ -46,7 +46,7 @@ export function InvoiceDetail({
     items: [],
   });
 
-  const printRef = useRef<HTMLDivElement>(null);
+  const componentRef = useRef<HTMLDivElement>(null);
 
   // Fetch invoice data
   useEffect(() => {
@@ -77,27 +77,9 @@ export function InvoiceDetail({
   }, [invoiceId, invoices, customers, getInvoiceItems]);
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: componentRef,
     documentTitle: `Invoice-${invoiceDetails.invoice?.invoiceId || ""}`,
-    removeAfterPrint: true,
-    pageStyle: `
-      @page {
-        size: auto;
-        margin: 20mm;
-      }
-      @media print {
-        body {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        .no-print {
-          display: none !important;
-        }
-        .print-only {
-          display: block !important;
-        }
-      }
-    `,
+    onAfterPrint: () => console.log("Printed successfully"),
   });
 
   const handleMarkAsPaid = async () => {
@@ -129,7 +111,7 @@ export function InvoiceDetail({
 
   const { invoice, customer, items } = invoiceDetails;
   const subtotal = items.reduce((total, item) => total + item.subtotal, 0);
-  const tax = subtotal * 0.07; // 7% tax rate
+  const tax = subtotal * 0.18; // 18% GST
   const total = subtotal + tax;
 
   // Format date properly
@@ -143,7 +125,7 @@ export function InvoiceDetail({
           <DialogDescription>Generated on {invoiceDate}</DialogDescription>
         </DialogHeader>
 
-        <div ref={printRef} className="invoice-container py-4">
+        <div ref={componentRef} className="invoice-container py-4">
           {/* Header */}
           <div className="flex justify-between mb-6">
             <div>
@@ -218,10 +200,10 @@ export function InvoiceDetail({
                   </div>
                   <div className="col-span-2 text-right">{item.quantity}</div>
                   <div className="col-span-2 text-right">
-                    ${item.price.toFixed(2)}
+                    ₹{item.price.toFixed(2)}
                   </div>
                   <div className="col-span-2 text-right font-medium">
-                    ${item.subtotal.toFixed(2)}
+                    ₹{item.subtotal.toFixed(2)}
                   </div>
                 </div>
               ))}
@@ -233,16 +215,16 @@ export function InvoiceDetail({
             <div className="w-64">
               <div className="flex justify-between py-2">
                 <div className="text-muted-foreground">Subtotal</div>
-                <div className="font-medium">${subtotal.toFixed(2)}</div>
+                <div className="font-medium">₹{subtotal.toFixed(2)}</div>
               </div>
               <div className="flex justify-between py-2">
-                <div className="text-muted-foreground">Tax (7%)</div>
-                <div className="font-medium">${tax.toFixed(2)}</div>
+                <div className="text-muted-foreground">GST (18%)</div>
+                <div className="font-medium">₹{tax.toFixed(2)}</div>
               </div>
               <Separator className="my-2" />
               <div className="flex justify-between py-2 font-bold">
                 <div>Total</div>
-                <div>${total.toFixed(2)}</div>
+                <div>₹{total.toFixed(2)}</div>
               </div>
             </div>
           </div>

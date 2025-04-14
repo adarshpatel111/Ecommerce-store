@@ -295,14 +295,14 @@ export function CreateInvoiceDialog({
                     <div className="col-span-2">
                       <Input
                         type="text"
-                        value={`$${item.price.toFixed(2)}`}
+                        value={`₹${item.price.toFixed(2)}`}
                         disabled
                       />
                     </div>
                     <div className="col-span-2">
                       <Input
                         type="text"
-                        value={`$${item.subtotal.toFixed(2)}`}
+                        value={`₹${item.subtotal.toFixed(2)}`}
                         disabled
                       />
                     </div>
@@ -324,7 +324,7 @@ export function CreateInvoiceDialog({
                   <div className="w-1/3 flex justify-between items-center">
                     <span className="font-medium">Total:</span>
                     <span className="text-lg font-bold">
-                      ${calculateTotal().toFixed(2)}
+                      ₹{calculateTotal().toFixed(2)}
                     </span>
                   </div>
                 </div>
