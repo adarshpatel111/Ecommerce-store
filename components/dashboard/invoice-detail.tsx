@@ -111,8 +111,9 @@ export function InvoiceDetail({
 
   const { invoice, customer, items } = invoiceDetails;
   const subtotal = items.reduce((total, item) => total + item.subtotal, 0);
-  const tax = subtotal * 0.18; // 18% GST
-  const total = subtotal + tax;
+  // const tax = subtotal * 0.18; // 18% GST
+  // const total = subtotal + tax;
+  const total = subtotal;
 
   // Format date properly
   const invoiceDate = format(new Date(invoice.date), "MMMM dd, yyyy");
@@ -217,10 +218,10 @@ export function InvoiceDetail({
                 <div className="text-muted-foreground">Subtotal</div>
                 <div className="font-medium">₹{subtotal.toFixed(2)}</div>
               </div>
-              <div className="flex justify-between py-2">
+              {/* <div className="flex justify-between py-2">
                 <div className="text-muted-foreground">GST (18%)</div>
                 <div className="font-medium">₹{tax.toFixed(2)}</div>
-              </div>
+              </div> */}
               <Separator className="my-2" />
               <div className="flex justify-between py-2 font-bold">
                 <div>Total</div>
