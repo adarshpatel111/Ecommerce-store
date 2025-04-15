@@ -31,7 +31,13 @@ import {
   Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getUsersByRole, ROLES } from "@/lib/firebase";
+import {
+  getUsersByRole,
+  ROLES,
+  resetUserPassword,
+  updateUserStatus,
+  deleteUser,
+} from "@/lib/firebase";
 import { AddUserDialog } from "@/components/dashboard/add-user-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/auth-context";
@@ -143,7 +149,7 @@ export default function UsersPage() {
 
     setIsLoading(true);
     try {
-      // In a real app, you would call an API to delete the user
+       await deleteUser(userToDelete);
       // For now, we'll just remove it from the state
       setUsers((prev) => prev.filter((user) => user.id !== userToDelete));
       toast({
@@ -225,7 +231,7 @@ export default function UsersPage() {
     setIsEditEmailDialogOpen(true);
   };
 
-  const handleEmailUpdated = (userId: string, newEmail: string) => {
+  const handleEmailUpdated =async (userId: string, newEmail: string) => {
     // Update user in state
     setUsers((prev) =>
       prev.map((user) =>
@@ -465,10 +471,12 @@ function UsersTable({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Actions</span>
-                      </Button>
+                      {user.role !== "admin" && (
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      )}
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
