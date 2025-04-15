@@ -15,7 +15,11 @@ import {
   loginUser,
   logoutUser,
   ROLES,
+  updateUserStatus,
 } from "@/lib/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 type UserData = {
   firstName: string;
@@ -23,6 +27,7 @@ type UserData = {
   email: string;
   role: string;
   createdAt: Date;
+  status?: string;
 };
 
 type AuthContextType = {
@@ -36,6 +41,17 @@ type AuthContextType = {
   logout: () => Promise<void>;
   isAdmin: boolean;
   isSubAdmin: boolean;
+  updateStatus: (
+    userId: string,
+    status: "active" | "inactive"
+  ) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (
+    email: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  editUserEmail: (
+    userId: string,
+    newEmail: string
+  ) => Promise<{ success: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,12 +94,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const updateStatus = async (
+    userId: string,
+    status: "active" | "inactive"
+  ) => {
+    try {
+      const result = await updateUserStatus(userId, status);
+      return result;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const result = await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const editUserEmail = async (userId: string, newEmail: string) => {
+    try {
+      // In a real app, you would use Firebase Admin SDK to update the email
+      // For now, we'll just update it in Firestore
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { email: newEmail });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       const result = await loginUser(email, password);
 
       if (result.success) {
+        // Check if user is active
+        if (result.userData?.status === "inactive") {
+          await logoutUser();
+          return {
+            success: false,
+            error:
+              "Your account has been deactivated. Please contact an administrator.",
+          };
+        }
+
         setUser(result.user);
         setUserData(result.userData);
         return { success: true };
@@ -124,6 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         isAdmin,
         isSubAdmin,
+        updateStatus,
+        resetPassword,
+        editUserEmail,
       }}
     >
       {children}
