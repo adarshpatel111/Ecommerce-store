@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PaymentHistoryDialog } from "@/components/dashboard/payment-history-dialog";
 
 export default function InvoicesPage() {
   const { invoices, customers, loading, markInvoiceAsPaid, deleteInvoice } =
@@ -55,6 +56,7 @@ export default function InvoicesPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
     null
   );
+  const [isPaymentHistoryOpen, setIsPaymentHistoryOpen] = useState(false);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -147,6 +149,12 @@ export default function InvoicesPage() {
     setIsMergeDialogOpen(true);
   };
 
+  const handlePaymentHistoryClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedInvoiceId(id);
+    setIsPaymentHistoryOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -224,6 +232,7 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
+                handlePaymentHistoryClick={handlePaymentHistoryClick}
               />
             </CardContent>
           </Card>
@@ -242,6 +251,7 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
+                handlePaymentHistoryClick={handlePaymentHistoryClick}
               />
             </CardContent>
           </Card>
@@ -260,6 +270,7 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
+                handlePaymentHistoryClick={handlePaymentHistoryClick}
               />
             </CardContent>
           </Card>
@@ -288,6 +299,11 @@ export default function InvoicesPage() {
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
       />
+      <PaymentHistoryDialog
+        open={isPaymentHistoryOpen}
+        onOpenChange={setIsPaymentHistoryOpen}
+        invoiceId={selectedInvoiceId}
+      />
     </div>
   );
 }
@@ -298,12 +314,14 @@ function InvoiceTable({
   onMarkAsPaid,
   onInvoiceClick,
   onDeleteClick,
+  handlePaymentHistoryClick,
 }: {
   invoices: any[];
   loading: boolean;
   onMarkAsPaid: (id: string) => void;
   onInvoiceClick: (id: string) => void;
   onDeleteClick: (id: string, e: React.MouseEvent) => void;
+  handlePaymentHistoryClick: (id: string, e: React.MouseEvent) => void;
 }) {
   return (
     <div className="rounded-md border overflow-x-auto">
@@ -314,6 +332,7 @@ function InvoiceTable({
             <TableHead className="hidden md:table-cell">Customer</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead className="hidden sm:table-cell">Date</TableHead>
+            <TableHead className="hidden md:table-cell">Paid Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -363,6 +382,10 @@ function InvoiceTable({
                 <TableCell className="hidden sm:table-cell">
                   {invoice.date}
                 </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {invoice.paidDate ||
+                    (invoice.status === "paid" ? "Unknown" : "-")}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -374,6 +397,16 @@ function InvoiceTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) =>
+                        handlePaymentHistoryClick(invoice.id || "", e)
+                      }
+                    >
+                      <span className="hidden sm:inline">Payments</span>
+                      <span className="sm:hidden">Pay</span>
+                    </Button>
                     {invoice.status === "unpaid" && (
                       <Button
                         variant="outline"
