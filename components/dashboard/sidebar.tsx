@@ -13,6 +13,7 @@ import {
   User,
   Settings,
   UserPlus,
+  ShoppingBag,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ import { useAuth } from "@/context/auth-context";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { userData, logout, isAdmin } = useAuth();
+  const { userData, logout, isAdmin, isSubAdmin } = useAuth();
   const { toast } = useToast();
 
   // Generate navigation items based on user role
@@ -49,22 +50,35 @@ export function DashboardSidebar() {
       href: "/dashboard",
       icon: BarChart3,
     },
-    {
-      title: "Products",
-      href: "/dashboard/products",
-      icon: Package,
-    },
-    {
-      title: "Customers",
-      href: "/dashboard/customers",
-      icon: Users,
-    },
-    {
-      title: "Invoices",
-      href: "/dashboard/invoices",
-      icon: FileText,
-    },
   ];
+
+  // Add admin/sub-admin only items
+  if (isAdmin || isSubAdmin) {
+    navItems.push(
+      {
+        title: "Products",
+        href: "/dashboard/products",
+        icon: Package,
+      },
+      {
+        title: "Customers",
+        href: "/dashboard/customers",
+        icon: Users,
+      },
+      {
+        title: "Invoices",
+        href: "/dashboard/invoices",
+        icon: FileText,
+      }
+    );
+  } else {
+    // Regular user items
+    navItems.push({
+      title: "My Purchases",
+      href: "/dashboard/my-purchases",
+      icon: ShoppingBag,
+    });
+  }
 
   // Add admin-only items
   if (isAdmin) {
@@ -74,6 +88,14 @@ export function DashboardSidebar() {
       icon: UserPlus,
     });
   }
+
+  // Add settings to the navItems array
+  // Add this after the existing items in the navItems array
+  navItems.push({
+    title: "Settings",
+    href: "/dashboard/settings",
+    icon: Settings,
+  });
 
   const handleLogout = async () => {
     try {
@@ -146,12 +168,6 @@ export function DashboardSidebar() {
                   <Link href="/dashboard/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
