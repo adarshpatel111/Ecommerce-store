@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
+import { DeviceSelectionDialog } from "@/components/device-selection-dialog";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,6 +32,10 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+
+  const [deviceLimitReached, setDeviceLimitReached] = useState(false);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [tempUser, setTempUser] = useState<any>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -50,6 +55,15 @@ export default function LoginPage() {
           description: "Redirecting to dashboard...",
         });
         router.push("/dashboard");
+      } else if (
+        result.error === "MAX_DEVICES_REACHED" &&
+        result.devices &&
+        result.user
+      ) {
+        // Handle device limit reached
+        setDeviceLimitReached(true);
+        setDevices(result.devices);
+        setTempUser(result.user);
       } else {
         toast({
           variant: "destructive",
@@ -67,6 +81,17 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
+
+  const handleDeviceSelectionSuccess = () => {
+    setDeviceLimitReached(false);
+    router.push("/dashboard");
+  };
+
+  const handleDeviceSelectionCancel = () => {
+    setDeviceLimitReached(false);
+    setTempUser(null);
+    setDevices([]);
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -137,6 +162,14 @@ export default function LoginPage() {
           </CardFooter>
         </form>
       </Card>
+      <DeviceSelectionDialog
+        open={deviceLimitReached}
+        onOpenChange={setDeviceLimitReached}
+        devices={devices}
+        userId={tempUser?.uid || ""}
+        onSuccess={handleDeviceSelectionSuccess}
+        onCancel={handleDeviceSelectionCancel}
+      />
     </div>
   );
 }
