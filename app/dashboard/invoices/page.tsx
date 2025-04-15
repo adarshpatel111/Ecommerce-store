@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/context/store-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, FileText, Trash2, Merge } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Merge, Calendar } from "lucide-react";
 import { InvoiceDetail } from "@/components/dashboard/invoice-detail";
 import { CreateInvoiceDialog } from "@/components/dashboard/create-invoice-dialog";
 import { MergeInvoicesDialog } from "@/components/dashboard/merge-invoices-dialog";
@@ -37,10 +37,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PaymentHistoryDialog } from "@/components/dashboard/payment-history-dialog";
+import { useAuth } from "@/context/auth-context";
 
 export default function InvoicesPage() {
   const { invoices, customers, loading, markInvoiceAsPaid, deleteInvoice } =
     useStore();
+  const { isAdmin, isSubAdmin } = useAuth();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -102,7 +104,9 @@ export default function InvoicesPage() {
 
   const handleMarkAsPaid = async (id: string) => {
     try {
-      await markInvoiceAsPaid(id);
+      // Add current date as paidDate when marking as paid
+      const paidDate = new Date().toISOString().split("T")[0];
+      await markInvoiceAsPaid(id, paidDate);
       toast({
         title: "Invoice updated",
         description: "Invoice has been marked as paid.",
@@ -155,6 +159,9 @@ export default function InvoicesPage() {
     setIsPaymentHistoryOpen(true);
   };
 
+  // Check if user has permission to modify invoices
+  const canModifyInvoices = isAdmin || isSubAdmin;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -164,32 +171,34 @@ export default function InvoicesPage() {
             Manage your invoices and payments
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          {customerWithMultipleUnpaidInvoices.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Merge className="mr-2 h-4 w-4" />
-                  Merge Invoices
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {customerWithMultipleUnpaidInvoices.map((customer) => (
-                  <DropdownMenuItem
-                    key={customer.id}
-                    onClick={() => handleMergeInvoices(customer.id)}
-                  >
-                    {customer.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Invoice
-          </Button>
-        </div>
+        {canModifyInvoices && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            {customerWithMultipleUnpaidInvoices.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Merge className="mr-2 h-4 w-4" />
+                    Merge Invoices
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {customerWithMultipleUnpaidInvoices.map((customer) => (
+                    <DropdownMenuItem
+                      key={customer.id}
+                      onClick={() => handleMergeInvoices(customer.id)}
+                    >
+                      {customer.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Invoice
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
@@ -233,6 +242,7 @@ export default function InvoicesPage() {
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
                 handlePaymentHistoryClick={handlePaymentHistoryClick}
+                canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
           </Card>
@@ -252,6 +262,7 @@ export default function InvoicesPage() {
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
                 handlePaymentHistoryClick={handlePaymentHistoryClick}
+                canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
           </Card>
@@ -271,6 +282,7 @@ export default function InvoicesPage() {
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
                 handlePaymentHistoryClick={handlePaymentHistoryClick}
+                canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
           </Card>
@@ -281,6 +293,7 @@ export default function InvoicesPage() {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
         invoiceId={selectedInvoiceId}
+        canModifyInvoices={canModifyInvoices}
       />
       <CreateInvoiceDialog
         open={isCreateDialogOpen}
@@ -303,6 +316,7 @@ export default function InvoicesPage() {
         open={isPaymentHistoryOpen}
         onOpenChange={setIsPaymentHistoryOpen}
         invoiceId={selectedInvoiceId}
+        canModifyInvoices={canModifyInvoices}
       />
     </div>
   );
@@ -315,6 +329,7 @@ function InvoiceTable({
   onInvoiceClick,
   onDeleteClick,
   handlePaymentHistoryClick,
+  canModifyInvoices,
 }: {
   invoices: any[];
   loading: boolean;
@@ -322,6 +337,7 @@ function InvoiceTable({
   onInvoiceClick: (id: string) => void;
   onDeleteClick: (id: string, e: React.MouseEvent) => void;
   handlePaymentHistoryClick: (id: string, e: React.MouseEvent) => void;
+  canModifyInvoices: boolean;
 }) {
   return (
     <div className="rounded-md border overflow-x-auto">
@@ -354,6 +370,9 @@ function InvoiceTable({
                 <TableCell className="hidden sm:table-cell">
                   <Skeleton className="h-4 w-[100px]" />
                 </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <Skeleton className="h-4 w-[100px]" />
+                </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-[80px]" />
                 </TableCell>
@@ -380,11 +399,20 @@ function InvoiceTable({
                 </TableCell>
                 <TableCell>₹{invoice.amount.toFixed(2)}</TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  {invoice.date}
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    {invoice.date}
+                  </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {invoice.paidDate ||
-                    (invoice.status === "paid" ? "Unknown" : "-")}
+                  {invoice.paidDate ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <Calendar className="h-3 w-3" />
+                      {invoice.paidDate}
+                    </div>
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -407,7 +435,8 @@ function InvoiceTable({
                       <span className="hidden sm:inline">Payments</span>
                       <span className="sm:hidden">Pay</span>
                     </Button>
-                    {invoice.status === "unpaid" && (
+
+                    {canModifyInvoices && invoice.status === "unpaid" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -420,22 +449,25 @@ function InvoiceTable({
                         <span className="sm:hidden">Pay</span>
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={(e) => onDeleteClick(invoice.id || "", e)}
-                    >
-                      <span className="hidden sm:inline">Delete</span>
-                      <Trash2 className="h-4 w-4 sm:hidden" />
-                    </Button>
+
+                    {canModifyInvoices && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={(e) => onDeleteClick(invoice.id || "", e)}
+                      >
+                        <span className="hidden sm:inline">Delete</span>
+                        <Trash2 className="h-4 w-4 sm:hidden" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 No invoices found.
               </TableCell>
             </TableRow>
