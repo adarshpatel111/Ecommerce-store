@@ -36,6 +36,7 @@ export type Product = {
   createdAt?: Timestamp;
 };
 
+// Add wallet balance to the Customer type
 export type Customer = {
   id?: string;
   firstName: string;
@@ -45,6 +46,7 @@ export type Customer = {
   address?: string;
   orders?: number;
   totalSpent?: number;
+  walletBalance?: number;
   createdAt?: Timestamp;
 };
 
@@ -70,6 +72,18 @@ export type InvoiceItem = {
   createdAt?: Timestamp;
 };
 
+// Add these types to the existing types
+export type Payment = {
+  id?: string;
+  invoiceId: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  notes?: string;
+  date: string;
+  createdAt?: Timestamp;
+};
+
 // Define the context type
 type StoreContextType = {
   products: Product[];
@@ -81,6 +95,7 @@ type StoreContextType = {
     customers: boolean;
     invoices: boolean;
     invoiceItems: boolean;
+    payments: boolean;
   };
   addProduct: (product: Product) => Promise<string>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
@@ -100,6 +115,13 @@ type StoreContextType = {
   getRecentInvoices: (limit?: number) => Invoice[];
   getUnpaidInvoices: (limit?: number) => Invoice[];
   getLowStockProducts: (threshold?: number) => Product[];
+  // Add these functions to the StoreContextType interface
+  addPayment: (payment: Omit<Payment, "createdAt">) => Promise<string>;
+  getPaymentHistory: (invoiceId: string) => Promise<Payment[]>;
+  updateWalletBalance: (
+    customerId: string,
+    amount: number
+  ) => Promise<{ success: boolean }>;
 };
 
 // Create the context
@@ -111,11 +133,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
+  // Add these state variables to the StoreProvider component
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState({
     products: true,
     customers: true,
     invoices: true,
     invoiceItems: true,
+    payments: true,
   });
 
   // Fetch data on mount
@@ -197,6 +222,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               address: "123 Main St, Anytown, CA 12345",
               orders: 12,
               totalSpent: 1245.89,
+              walletBalance: 100,
               createdAt: Timestamp.now(),
             },
             {
@@ -207,6 +233,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               address: "456 Oak Ave, Somewhere, NY 67890",
               orders: 8,
               totalSpent: 879.5,
+              walletBalance: 50,
               createdAt: Timestamp.now(),
             },
             {
@@ -217,6 +244,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               address: "789 Pine Rd, Nowhere, TX 54321",
               orders: 5,
               totalSpent: 432.25,
+              walletBalance: 25,
               createdAt: Timestamp.now(),
             },
           ];
@@ -335,6 +363,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
     const invoiceItemsQuery = query(collection(db, "invoiceItems"));
 
+    // Add this to the useEffect that sets up listeners
+    const paymentsQuery = query(
+      collection(db, "payments"),
+      orderBy("createdAt", "desc")
+    );
+
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
       const productsData = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -374,11 +408,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
+      const paymentsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Payment[];
+      setPayments(paymentsData);
+      setLoading((prev) => ({ ...prev, payments: false }));
+    });
+
+    // Add this to the return statement in the useEffect
     return () => {
       unsubscribeProducts();
       unsubscribeCustomers();
       unsubscribeInvoices();
       unsubscribeInvoiceItems();
+      unsubscribePayments();
     };
   }, []);
 
@@ -541,6 +586,67 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await updateDoc(invoiceRef, { status: "paid" });
   };
 
+  // Add these functions to the StoreProvider component
+  const addPayment = async (payment: Omit<Payment, "createdAt">) => {
+    try {
+      // Add payment to database
+      const docRef = await addDoc(collection(db, "payments"), {
+        ...payment,
+        createdAt: serverTimestamp(),
+      });
+
+      // Check if invoice is fully paid
+      const invoice = invoices.find((inv) => inv.id === payment.invoiceId);
+      if (invoice) {
+        // Get all payments for this invoice
+        const invoicePayments = payments.filter(
+          (p) => p.invoiceId === payment.invoiceId
+        );
+        const totalPaid =
+          invoicePayments.reduce((sum, p) => sum + p.amount, 0) +
+          payment.amount;
+
+        // If total paid equals or exceeds invoice amount, mark as paid
+        if (totalPaid >= invoice.amount) {
+          await updateInvoice(payment.invoiceId, { status: "paid" });
+        }
+      }
+
+      return docRef.id;
+    } catch (error) {
+      console.error("Error adding payment:", error);
+      throw error;
+    }
+  };
+
+  const getPaymentHistory = async (invoiceId: string): Promise<Payment[]> => {
+    // First check if we already have the payments in state
+    const cachedPayments = payments.filter(
+      (payment) => payment.invoiceId === invoiceId
+    );
+
+    if (cachedPayments.length > 0) {
+      return cachedPayments.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateB - dateA; // Sort by date descending
+      });
+    }
+
+    // If not in state, fetch from database
+    const paymentsQuery = query(
+      collection(db, "payments"),
+      where("invoiceId", "==", invoiceId),
+      orderBy("date", "desc")
+    );
+    const paymentsSnapshot = await getDocs(paymentsQuery);
+
+    return paymentsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Payment[];
+  };
+
   // Helper functions
   const getInvoiceItems = async (invoiceId: string): Promise<InvoiceItem[]> => {
     // First check if we already have the items in state
@@ -617,6 +723,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => a.stock - b.stock);
   };
 
+  // Add a function to update wallet balance
+  const updateWalletBalance = async (customerId: string, amount: number) => {
+    try {
+      const customerRef = doc(db, "customers", customerId);
+      await updateDoc(customerRef, {
+        walletBalance: firestoreIncrement(amount),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating wallet balance:", error);
+      throw error;
+    }
+  };
+
+  // Add these to the value object
   const value = {
     products,
     customers,
@@ -638,6 +759,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     getRecentInvoices,
     getUnpaidInvoices,
     getLowStockProducts,
+    payments,
+    addPayment,
+    getPaymentHistory,
+    updateWalletBalance,
   };
 
   return (
