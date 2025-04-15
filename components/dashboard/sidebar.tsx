@@ -89,13 +89,18 @@ export function DashboardSidebar() {
     });
   }
 
-  // Add settings to the navItems array
-  // Add this after the existing items in the navItems array
-  navItems.push({
-    title: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
-  });
+  // Add settings and profile for all users
+  // navItems.push({
+  //   title: "Settings",
+  //   href: "/dashboard/settings",
+  //   icon: Settings,
+  // });
+
+  // navItems.push({
+  //   title: "Profile",
+  //   href: "/dashboard/profile",
+  //   icon: User,
+  // });
 
   const handleLogout = async () => {
     try {
@@ -119,7 +124,11 @@ export function DashboardSidebar() {
         <Link href="/dashboard" className="flex items-center font-semibold">
           <Package className="mr-2 h-5 w-5" />
           <span className="group-data-[collapsible=icon]:hidden">
-            Admin Dashboard
+            {isAdmin
+              ? "Admin Dashboard"
+              : isSubAdmin
+              ? "Sub-Admin Dashboard"
+              : "User Dashboard"}
           </span>
         </Link>
       </SidebarHeader>
@@ -145,7 +154,10 @@ export function DashboardSidebar() {
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src="/placeholder.svg?height=32&width=32"
+                      src={
+                        userData?.photoURL ||
+                        "/placeholder.svg?height=32&width=32"
+                      }
                       alt="User"
                     />
                     <AvatarFallback>
@@ -168,6 +180,12 @@ export function DashboardSidebar() {
                   <Link href="/dashboard/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
