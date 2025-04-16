@@ -28,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { InvoiceDetail } from "@/components/dashboard/invoice-detail";
 
 export default function MyPurchasesPage() {
-  const { user, userData } = useAuth();
+  const { user, userData, isAdmin, isSubAdmin } = useAuth();
   const { invoices, customers, loading } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [userInvoices, setUserInvoices] = useState<any[]>([]);
@@ -36,7 +36,8 @@ export default function MyPurchasesPage() {
     null
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-
+  // Check if user has permission to modify invoices
+  const canModifyInvoices = isAdmin || isSubAdmin;
   // Fetch user's invoices
   useEffect(() => {
     if (!loading.invoices && !loading.customers && user) {
@@ -184,6 +185,7 @@ export default function MyPurchasesPage() {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
         invoiceId={selectedInvoiceId}
+        canModifyInvoices={canModifyInvoices}
       />
     </div>
   );
