@@ -73,7 +73,7 @@ export function AddUserDialog({
 
         // Add user to the list
         onUserAdded({
-          id: result.user.uid,
+          id: result.user?.uid,
           ...userData,
           email: formData.email,
           createdAt: new Date(),
