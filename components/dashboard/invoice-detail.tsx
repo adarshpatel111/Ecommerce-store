@@ -21,17 +21,20 @@ import {
   type InvoiceItem,
 } from "@/context/store-context";
 import { Printer } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
 
 interface InvoiceDetailProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoiceId: string | null;
+  canModifyInvoices: boolean;
 }
 
 export function InvoiceDetail({
   open,
   onOpenChange,
   invoiceId,
+  canModifyInvoices,
 }: InvoiceDetailProps) {
   const { invoices, customers, getInvoiceItems, markInvoiceAsPaid } =
     useStore();
@@ -45,7 +48,7 @@ export function InvoiceDetail({
     customer: null,
     items: [],
   });
-
+  const { user } = useAuth();
   const componentRef = useRef<HTMLDivElement>(null);
 
   // Fetch invoice data
@@ -75,8 +78,12 @@ export function InvoiceDetail({
 
     fetchInvoiceDetails();
   }, [invoiceId, invoices, customers, getInvoiceItems]);
-
-  const handlePrint = useReactToPrint({
+const handlePrintInvoiceClick = (
+  event: React.MouseEvent<HTMLButtonElement>
+) => {
+  handlePrintInvoice();
+};
+  const handlePrintInvoice = useReactToPrint({
     contentRef: componentRef,
     documentTitle: `Invoice-${invoiceDetails.invoice?.invoiceId || ""}`,
     onAfterPrint: () => console.log("Printed successfully"),
@@ -86,7 +93,8 @@ export function InvoiceDetail({
     if (invoiceId) {
       setIsLoading(true);
       try {
-        await markInvoiceAsPaid(invoiceId);
+        const paidDate = new Date().toISOString().split("T")[0];
+        await markInvoiceAsPaid(invoiceId, paidDate);
         // Update local state
         if (invoiceDetails.invoice) {
           setInvoiceDetails({
@@ -240,25 +248,27 @@ export function InvoiceDetail({
           </div>
         </div>
 
-        <DialogFooter className="flex flex-col sm:flex-row gap-2 no-print">
-          {invoice.status === "unpaid" && (
+        {canModifyInvoices && (
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 no-print">
+            {invoice.status === "unpaid" && (
+              <Button
+                onClick={handleMarkAsPaid}
+                className="w-full sm:w-auto"
+                disabled={isLoading}
+              >
+                {isLoading ? "Processing..." : "Mark as Paid"}
+              </Button>
+            )}
             <Button
-              onClick={handleMarkAsPaid}
+              variant="outline"
+              onClick={handlePrintInvoiceClick}
               className="w-full sm:w-auto"
-              disabled={isLoading}
             >
-              {isLoading ? "Processing..." : "Mark as Paid"}
+              <Printer className="mr-2 h-4 w-4" />
+              Print Invoice
             </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            className="w-full sm:w-auto"
-          >
-            <Printer className="mr-2 h-4 w-4" />
-            Print Invoice
-          </Button>
-        </DialogFooter>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
