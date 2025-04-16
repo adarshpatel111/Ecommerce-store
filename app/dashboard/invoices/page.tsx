@@ -36,7 +36,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PaymentHistoryDialog } from "@/components/dashboard/payment-history-dialog";
 import { useAuth } from "@/context/auth-context";
 
 export default function InvoicesPage() {
@@ -58,7 +57,6 @@ export default function InvoicesPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
     null
   );
-  const [isPaymentHistoryOpen, setIsPaymentHistoryOpen] = useState(false);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -153,12 +151,6 @@ export default function InvoicesPage() {
     setIsMergeDialogOpen(true);
   };
 
-  const handlePaymentHistoryClick = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedInvoiceId(id);
-    setIsPaymentHistoryOpen(true);
-  };
-
   // Check if user has permission to modify invoices
   const canModifyInvoices = isAdmin || isSubAdmin;
 
@@ -241,7 +233,6 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
-                handlePaymentHistoryClick={handlePaymentHistoryClick}
                 canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
@@ -261,7 +252,6 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
-                handlePaymentHistoryClick={handlePaymentHistoryClick}
                 canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
@@ -281,7 +271,6 @@ export default function InvoicesPage() {
                 onMarkAsPaid={handleMarkAsPaid}
                 onInvoiceClick={handleInvoiceClick}
                 onDeleteClick={handleDeleteClick}
-                handlePaymentHistoryClick={handlePaymentHistoryClick}
                 canModifyInvoices={canModifyInvoices}
               />
             </CardContent>
@@ -312,12 +301,6 @@ export default function InvoicesPage() {
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
       />
-      <PaymentHistoryDialog
-        open={isPaymentHistoryOpen}
-        onOpenChange={setIsPaymentHistoryOpen}
-        invoiceId={selectedInvoiceId}
-        canModifyInvoices={canModifyInvoices}
-      />
     </div>
   );
 }
@@ -328,15 +311,13 @@ function InvoiceTable({
   onMarkAsPaid,
   onInvoiceClick,
   onDeleteClick,
-  handlePaymentHistoryClick,
   canModifyInvoices,
 }: {
   invoices: any[];
   loading: boolean;
-  onMarkAsPaid: (id: string) => void;
+  onMarkAsPaid: (id: string,paidDate: string) => void;
   onInvoiceClick: (id: string) => void;
   onDeleteClick: (id: string, e: React.MouseEvent) => void;
-  handlePaymentHistoryClick: (id: string, e: React.MouseEvent) => void;
   canModifyInvoices: boolean;
 }) {
   return (
@@ -425,28 +406,20 @@ function InvoiceTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) =>
-                        handlePaymentHistoryClick(invoice.id || "", e)
-                      }
-                    >
-                      <span className="hidden sm:inline">Payments</span>
-                      <span className="sm:hidden">Pay</span>
-                    </Button>
-
                     {canModifyInvoices && invoice.status === "unpaid" && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onMarkAsPaid(invoice.id || "");
+                          const paidDate = new Date()
+                            .toISOString()
+                            .split("T")[0];
+                          onMarkAsPaid(invoice.id || "", paidDate);
                         }}
                       >
                         <span className="hidden sm:inline">Mark Paid</span>
-                        <span className="sm:hidden">Pay</span>
+                        <span className="sm:hidden">Mark Paid</span>
                       </Button>
                     )}
 
