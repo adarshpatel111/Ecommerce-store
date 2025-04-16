@@ -89,19 +89,6 @@ export function DashboardSidebar() {
     });
   }
 
-  // Add settings and profile for all users
-  // navItems.push({
-  //   title: "Settings",
-  //   href: "/dashboard/settings",
-  //   icon: Settings,
-  // });
-
-  // navItems.push({
-  //   title: "Profile",
-  //   href: "/dashboard/profile",
-  //   icon: User,
-  // });
-
   const handleLogout = async () => {
     try {
       await logout();
