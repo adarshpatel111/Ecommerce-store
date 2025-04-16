@@ -1,10 +1,8 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-
 import type React from "react";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -28,11 +26,19 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
+import { getUserDevices, removeUserDevice } from "@/lib/firebase";
+import { Laptop, Smartphone, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user, userData } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
 
   // Account settings
   const [accountSettings, setAccountSettings] = useState({
@@ -45,7 +51,7 @@ export default function SettingsPage() {
 
   // Appearance settings
   const [appearanceSettings, setAppearanceSettings] = useState({
-    theme: "system",
+    theme: theme || "system",
     fontSize: "medium",
     reducedMotion: false,
     highContrast: false,
@@ -70,6 +76,31 @@ export default function SettingsPage() {
     currency: userData?.currency || "INR",
   });
 
+  // Fetch user devices
+  useEffect(() => {
+    const fetchDevices = async () => {
+      if (!user) return;
+
+      setLoadingDevices(true);
+      try {
+        const result = await getUserDevices(user.uid);
+        if (result.success) {
+          setDevices(result.devices || []);
+
+          // Get current device ID from localStorage
+          const storedDeviceId = localStorage.getItem("deviceId");
+          setCurrentDeviceId(storedDeviceId);
+        }
+      } catch (error) {
+        console.error("Error fetching devices:", error);
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+
+    fetchDevices();
+  }, [user]);
+
   // Handle account settings change
   const handleAccountSettingChange = (key: string, value: boolean) => {
     setAccountSettings((prev) => ({ ...prev, [key]: value }));
@@ -78,6 +109,11 @@ export default function SettingsPage() {
   // Handle appearance settings change
   const handleAppearanceSettingChange = (key: string, value: any) => {
     setAppearanceSettings((prev) => ({ ...prev, [key]: value }));
+
+    // Apply theme change immediately
+    if (key === "theme") {
+      setTheme(value);
+    }
   };
 
   // Handle notification settings change
@@ -98,24 +134,59 @@ export default function SettingsPage() {
     setBusinessSettings((prev) => ({ ...prev, currency: value }));
   };
 
-  // Handle 2FA toggle
-  const handleTwoFactorToggle = (checked: boolean) => {
-    if (checked) {
-      // In a real app, you would initiate the 2FA setup process here
+  // Handle device logout
+  const handleDeviceLogout = async (deviceId: string) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const result = await removeUserDevice(user.uid, deviceId);
+      if (result.success) {
+        setDevices(devices.filter((device) => device.deviceId !== deviceId));
+        toast({
+          title: "Device logged out",
+          description: "The device has been logged out successfully.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error || "Failed to log out device.",
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "2FA Setup",
-        description:
-          "Two-factor authentication setup initiated. Follow the instructions to complete setup.",
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to log out device.",
       });
-    } else {
-      // In a real app, you would disable 2FA here
-      toast({
-        title: "2FA Disabled",
-        description:
-          "Two-factor authentication has been disabled for your account.",
-      });
+    } finally {
+      setIsLoading(false);
     }
-    setAccountSettings((prev) => ({ ...prev, twoFactorAuth: checked }));
+  };
+
+  // Format last active time
+  const formatLastActive = (timestamp: any) => {
+    if (!timestamp) return "Unknown";
+    try {
+      // Convert Firebase timestamp to JS Date
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return "Unknown";
+    }
+  };
+
+  // Get device icon
+  const getDeviceIcon = (device: any) => {
+    const isMobile = /mobile|android|iphone|ipad|ipod/i.test(
+      device.browser.toLowerCase()
+    );
+    return isMobile ? (
+      <Smartphone className="h-5 w-5" />
+    ) : (
+      <Laptop className="h-5 w-5" />
+    );
   };
 
   // Save account settings
@@ -330,7 +401,9 @@ export default function SettingsPage() {
                 <Switch
                   id="twoFactorAuth"
                   checked={accountSettings.twoFactorAuth}
-                  onCheckedChange={handleTwoFactorToggle}
+                  onCheckedChange={(checked) =>
+                    handleAccountSettingChange("twoFactorAuth", checked)
+                  }
                 />
               </div>
             </CardContent>
@@ -342,28 +415,57 @@ export default function SettingsPage() {
               <CardDescription>Manage your connected devices</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Current Device</p>
-                    <p className="text-sm text-muted-foreground">
-                      Windows 11 • Chrome • Mumbai, India
-                    </p>
-                  </div>
-                  <Badge variant="outline">Current</Badge>
+              {loadingDevices ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">iPhone 13</p>
-                    <p className="text-sm text-muted-foreground">
-                      iOS 16 • Safari • Mumbai, India
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Logout
-                  </Button>
+              ) : devices.length > 0 ? (
+                <div className="space-y-4">
+                  {devices.map((device) => (
+                    <div
+                      key={device.deviceId}
+                      className="flex items-center justify-between border-b pb-4 last:border-0"
+                    >
+                      <div className="flex items-start gap-3">
+                        {getDeviceIcon(device)}
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">
+                            {device.name || "Unknown Device"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {device.os} • {device.browser.split(" ")[0]} •{" "}
+                            {device.location || "Unknown Location"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Last active: {formatLastActive(device.lastActive)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {device.deviceId === currentDeviceId && (
+                          <Badge variant="outline" className="mr-2">
+                            Current
+                          </Badge>
+                        )}
+                        {device.deviceId !== currentDeviceId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeviceLogout(device.deviceId)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Logging out..." : "Logout"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No devices connected.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
