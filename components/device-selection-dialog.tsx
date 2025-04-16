@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Laptop, Smartphone, X } from "lucide-react";
-
 import {
   Dialog,
   DialogContent,
@@ -12,17 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { removeUserDevice } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { removeUserDevice, addUserDevice } from "@/lib/firebase";
-
-interface DeviceSelectionDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  devices: any[];
-  userId: string;
-  onSuccess: () => void;
-  onCancel: () => void;
-}
+import { Laptop, Smartphone, Trash2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 export function DeviceSelectionDialog({
   open,
@@ -31,61 +22,53 @@ export function DeviceSelectionDialog({
   userId,
   onSuccess,
   onCancel,
-}: DeviceSelectionDialogProps) {
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  devices: any[];
+  userId: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
   const { toast } = useToast();
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
-  const handleDeviceSelect = (deviceId: string) => {
-    setSelectedDevice(deviceId);
-  };
-
-  const handleContinue = async () => {
-    if (!selectedDevice) {
+  const handleRemoveDevice = async () => {
+    if (!selectedDeviceId) {
       toast({
         variant: "destructive",
-        title: "No device selected",
-        description: "Please select a device to log out.",
+        title: "Error",
+        description: "Please select a device to remove.",
       });
       return;
     }
 
     setIsLoading(true);
     try {
-      // Remove the selected device
-      await removeUserDevice(userId, selectedDevice);
-
-      // Register current device
-      const deviceInfo = {
-        browser: navigator.userAgent,
-        os: navigator.platform,
-        location: "Unknown",
-        name: `${navigator.platform} - ${
-          navigator.userAgent.split(")")[0].split("(")[1]
-        }`,
-      };
-
-      await addUserDevice(userId, deviceInfo);
-
-      toast({
-        title: "Device logged out",
-        description: "You have been logged in on this device.",
-      });
-
-      onSuccess();
-    } catch (error) {
+      const result = await removeUserDevice(userId, selectedDeviceId);
+      if (result.success) {
+        toast({
+          title: "Device removed",
+          description: "You can now log in with your current device.",
+        });
+        onSuccess();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error || "Failed to remove device.",
+        });
+      }
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to log out device. Please try again.",
+        description: error.message || "Failed to remove device.",
       });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCancel = () => {
-    onCancel();
   };
 
   const getDeviceIcon = (device: any) => {
@@ -93,23 +76,21 @@ export function DeviceSelectionDialog({
       device.browser.toLowerCase()
     );
     return isMobile ? (
-      <Smartphone className="h-8 w-8" />
+      <Smartphone className="h-5 w-5" />
     ) : (
-      <Laptop className="h-8 w-8" />
+      <Laptop className="h-5 w-5" />
     );
   };
 
   const formatLastActive = (timestamp: any) => {
     if (!timestamp) return "Unknown";
-
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
+    try {
+      // Convert Firebase timestamp to JS Date
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return "Unknown";
+    }
   };
 
   return (
@@ -118,51 +99,56 @@ export function DeviceSelectionDialog({
         <DialogHeader>
           <DialogTitle>Device Limit Reached</DialogTitle>
           <DialogDescription>
-            You have reached the maximum number of devices (2). Please select a
-            device to log out.
+            You have reached the maximum number of devices (2). Please remove
+            one of your existing devices to continue.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             {devices.map((device) => (
               <div
                 key={device.deviceId}
-                className={`flex items-center gap-4 p-3 border rounded-md cursor-pointer transition-colors ${
-                  selectedDevice === device.deviceId
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-muted"
+                className={`flex items-center justify-between p-3 rounded-md border ${
+                  selectedDeviceId === device.deviceId
+                    ? "border-primary bg-primary/10"
+                    : "border-border"
                 }`}
-                onClick={() => handleDeviceSelect(device.deviceId)}
+                onClick={() => setSelectedDeviceId(device.deviceId)}
               >
-                <div className="text-muted-foreground">
+                <div className="flex items-center space-x-3">
                   {getDeviceIcon(device)}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{device.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Last active: {formatLastActive(device.lastActive)}
-                  </p>
-                </div>
-                {selectedDevice === device.deviceId && (
-                  <div className="text-primary">
-                    <X className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">
+                      {device.name || "Unknown Device"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Last active: {formatLastActive(device.lastActive)}
+                    </p>
                   </div>
-                )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDeviceId(device.deviceId);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             ))}
           </div>
         </div>
-
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
-          <Button variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
           <Button
-            onClick={handleContinue}
-            disabled={!selectedDevice || isLoading}
+            onClick={handleRemoveDevice}
+            disabled={!selectedDeviceId || isLoading}
           >
-            {isLoading ? "Processing..." : "Continue"}
+            {isLoading ? "Removing..." : "Remove Selected Device"}
           </Button>
         </DialogFooter>
       </DialogContent>
