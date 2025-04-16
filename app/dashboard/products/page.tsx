@@ -177,7 +177,7 @@ export default function ProductsPage() {
                             product.status === "In Stock"
                               ? "default"
                               : product.status === "Low Stock"
-                              ? "warning"
+                              ? "secondary"
                               : "destructive"
                           }
                         >
