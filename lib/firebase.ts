@@ -90,7 +90,7 @@ export const loginUser = async (email: string, password: string) => {
       // Check device limits
       const { success, devices } = await getUserDevices(user.uid)
 
-      if (success && devices.length >= 2) {
+      if (success && devices.length >= 3) {
         // Get current device info
         const deviceInfo = {
           browser: navigator.userAgent,
@@ -218,7 +218,10 @@ export const resetUserPassword = async (email: string) => {
   }
 }
 
-export const updateUserStatus = async (userId: string, status: "active" | "inactive") => {
+export const updateUserStatus = async (userId: string, status: string) => {
+  if (status !== "active" && status !== "inactive") {
+    throw new Error(`Invalid status value: ${status}`);
+  }
   try {
     const userRef = doc(db, "users", userId)
     await setDoc(userRef, { status }, { merge: true })
