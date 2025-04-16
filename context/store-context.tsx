@@ -109,7 +109,7 @@ type StoreContextType = {
   ) => Promise<string>;
   updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
-  markInvoiceAsPaid: (id: string) => Promise<void>;
+  markInvoiceAsPaid: (id: string, paidDate: string) => Promise<void>;
   getInvoiceItems: (invoiceId: string) => Promise<InvoiceItem[]>;
   getCustomerInvoices: (customerId: string) => Promise<Invoice[]>;
   getRecentInvoices: (limit?: number) => Invoice[];
@@ -117,7 +117,6 @@ type StoreContextType = {
   getLowStockProducts: (threshold?: number) => Product[];
   // Add these functions to the StoreContextType interface
   addPayment: (payment: Omit<Payment, "createdAt">) => Promise<string>;
-  getPaymentHistory: (invoiceId: string) => Promise<Payment[]>;
   updateWalletBalance: (
     customerId: string,
     amount: number
@@ -581,10 +580,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const markInvoiceAsPaid = async (id: string) => {
-    const invoiceRef = doc(db, "invoices", id);
-    await updateDoc(invoiceRef, { status: "paid" });
-  };
+ const markInvoiceAsPaid = async (id: string, paidDate: string) => {
+   const invoiceRef = doc(db, "invoices", id);
+
+   await updateDoc(invoiceRef, {
+     status: "paid",
+     paidDate: paidDate,
+   });
+ };
 
   // Add these functions to the StoreProvider component
   const addPayment = async (payment: Omit<Payment, "createdAt">) => {
@@ -619,33 +622,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getPaymentHistory = async (invoiceId: string): Promise<Payment[]> => {
-    // First check if we already have the payments in state
-    const cachedPayments = payments.filter(
-      (payment) => payment.invoiceId === invoiceId
-    );
 
-    if (cachedPayments.length > 0) {
-      return cachedPayments.sort((a, b) => {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return dateB - dateA; // Sort by date descending
-      });
-    }
-
-    // If not in state, fetch from database
-    const paymentsQuery = query(
-      collection(db, "payments"),
-      where("invoiceId", "==", invoiceId),
-      orderBy("date", "desc")
-    );
-    const paymentsSnapshot = await getDocs(paymentsQuery);
-
-    return paymentsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Payment[];
-  };
 
   // Helper functions
   const getInvoiceItems = async (invoiceId: string): Promise<InvoiceItem[]> => {
@@ -761,7 +738,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     getLowStockProducts,
     payments,
     addPayment,
-    getPaymentHistory,
     updateWalletBalance,
   };
 
