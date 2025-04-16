@@ -83,12 +83,15 @@ export default function UsersPage() {
 
       if (adminResult.success && subAdminResult.success && userResult.success) {
         const allUsers = [
-          ...adminResult.users.map((user) => ({ ...user, roleLabel: "Admin" })),
-          ...subAdminResult.users.map((user) => ({
+          ...adminResult?.users.map((user) => ({
+            ...user,
+            roleLabel: "Admin",
+          })),
+          ...subAdminResult?.users.map((user) => ({
             ...user,
             roleLabel: "Sub-Admin",
           })),
-          ...userResult.users.map((user) => ({ ...user, roleLabel: "User" })),
+          ...userResult?.users.map((user) => ({ ...user, roleLabel: "User" })),
         ];
         setUsers(allUsers);
       } else {
@@ -149,7 +152,7 @@ export default function UsersPage() {
 
     setIsLoading(true);
     try {
-       await deleteUser(userToDelete);
+      await deleteUser(userToDelete);
       // For now, we'll just remove it from the state
       setUsers((prev) => prev.filter((user) => user.id !== userToDelete));
       toast({
@@ -231,7 +234,7 @@ export default function UsersPage() {
     setIsEditEmailDialogOpen(true);
   };
 
-  const handleEmailUpdated =async (userId: string, newEmail: string) => {
+  const handleEmailUpdated = async (userId: string, newEmail: string) => {
     // Update user in state
     setUsers((prev) =>
       prev.map((user) =>
