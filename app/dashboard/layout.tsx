@@ -49,7 +49,9 @@ export default function DashboardLayout({
       <SidebarProvider defaultOpen={true}>
         <DashboardSidebar />
         <MobileSidebarTrigger />
-        <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6">{children}</main>
+        <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6 w-full">
+          {children}
+        </main>
       </SidebarProvider>
     </div>
   );
