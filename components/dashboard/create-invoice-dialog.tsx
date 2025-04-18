@@ -149,6 +149,7 @@ export function CreateInvoiceDialog({
         customerId: selectedCustomer,
         amount: calculateTotal(),
         status: "unpaid",
+        paidDate: "",
         date: new Date().toISOString().split("T")[0],
       };
 

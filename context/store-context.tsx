@@ -58,6 +58,7 @@ export type Invoice = {
   amount: number;
   status: "paid" | "unpaid";
   date: string;
+  paidDate: string;
   createdAt?: Timestamp;
 };
 
@@ -580,14 +581,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
- const markInvoiceAsPaid = async (id: string, paidDate: string) => {
-   const invoiceRef = doc(db, "invoices", id);
+  const markInvoiceAsPaid = async (id: string, paidDate: string) => {
+    const invoiceRef = doc(db, "invoices", id);
 
-   await updateDoc(invoiceRef, {
-     status: "paid",
-     paidDate: paidDate,
-   });
- };
+    await updateDoc(invoiceRef, {
+      status: "paid",
+      paidDate: paidDate,
+    });
+  };
 
   // Add these functions to the StoreProvider component
   const addPayment = async (payment: Omit<Payment, "createdAt">) => {
@@ -621,8 +622,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   };
-
-
 
   // Helper functions
   const getInvoiceItems = async (invoiceId: string): Promise<InvoiceItem[]> => {
